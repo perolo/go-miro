@@ -34,6 +34,21 @@ type Team struct {
 	ModifiedBy *MiniUser    `json:"modifiedBy"`
 	Picture    *MiniPicture `json:"picture"`
 }
+/*
+type Team struct {
+	Type         string       `json:"type"`
+	ID         string       `json:"id"`
+//	Name       string       `json:"name"`
+	CreatedAt  time.Time    `json:"createdAt"`
+	CreatedBy  *MiniUser    `json:"createdBy"`
+	ModifiedAt time.Time    `json:"modifiedAt"`
+	ModifiedBy *MiniUser    `json:"modifiedBy"`
+	User 		*MiniUser    `json:"user"`
+	Role       string       `json:"role"`
+	Team 		*MiniUser    `json:"team"`
+//	Picture    *MiniPicture `json:"picture"`
+}
+*/
 
 func (t *Team) GetType() string {
 	return "team"
@@ -112,18 +127,58 @@ func (s *TeamsService) Update(ctx context.Context, id string, request *UpdateTea
 //
 //go:generate gomodifytags -file $GOFILE -struct ListTeamMembersResponse -clear-tags -w
 //go:generate gomodifytags --file $GOFILE --struct ListTeamMembersResponse -add-tags json -w -transform camelcase
+/*
 type ListTeamMembersResponse struct {
+	Type  int     `json:"type"`
 	Limit  int     `json:"limit"`
 	Offset int     `json:"offset"`
 	Size   int     `json:"size"`
+	PrevLink   interface{}     `json:"prevLink"`
 	Data   []*Team `json:"data"`
+	NextLink   interface{}     `json:"nextLink"`
+}
+*/
+type ListTeamMembersResponse struct {
+	Type     string      `json:"type"`
+	Limit    int         `json:"limit"`
+	Offset   int         `json:"offset"`
+	Size     int         `json:"size"`
+	NextLink interface{} `json:"nextLink"`
+	PrevLink interface{} `json:"prevLink"`
+	Data     []struct {
+		Type      string    `json:"type"`
+		ID        string    `json:"id"`
+		CreatedAt time.Time `json:"createdAt"`
+		CreatedBy struct {
+			Type string `json:"type"`
+			Name string `json:"name"`
+			ID   string `json:"id"`
+		} `json:"createdBy"`
+		ModifiedAt time.Time `json:"modifiedAt"`
+		ModifiedBy struct {
+			Type string `json:"type"`
+			Name string `json:"name"`
+			ID   string `json:"id"`
+		} `json:"modifiedBy"`
+		User struct {
+			Type string `json:"type"`
+			Name string `json:"name"`
+			ID   string `json:"id"`
+		} `json:"user"`
+		Role string `json:"role"`
+		Team struct {
+			Type string `json:"type"`
+			Name string `json:"name"`
+			ID   string `json:"id"`
+		} `json:"team"`
+	} `json:"data"`
 }
 
 // ListTeamMembers gets all team members
 //
 // API doc: https://developers.miro.com/reference#get-team-user-connections
 func (s *TeamsService) ListTeamMembers(ctx context.Context, id string) (*ListTeamMembersResponse, error) {
-	req, err := s.client.NewGetRequest(fmt.Sprintf("%s/%s", teamsPath, id))
+	req, err := s.client.NewGetRequest(fmt.Sprintf("%s/%s/%s", teamsPath, id,userConnectionsPath))
 	if err != nil {
 		return nil, err
 	}
