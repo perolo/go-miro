@@ -46,6 +46,7 @@ type Client struct {
 	Teams               *TeamsService
 	TeamUserConnection  *TeamUserConnectionService
 	Users               *UsersService
+	Widget              *WidgetsService
 }
 
 type RateLimit struct {
@@ -77,6 +78,7 @@ func NewClient(accessKey string) *Client {
 	c.Teams = (*TeamsService)(&c.common)
 	c.TeamUserConnection = (*TeamUserConnectionService)(&c.common)
 	c.Users = (*UsersService)(&c.common)
+	c.Widget = (*WidgetsService)(&c.common)
 
 	return c
 }
