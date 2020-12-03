@@ -52,27 +52,39 @@ type Text struct {
 type Line struct {
 }
 
-// Card object represents Miro Card.
+// SimpleCard object represents Miro SimpleCard.
 //
 // API doc: https://developers.miro.com/reference#card
 //go:generate gomodifytags -file $GOFILE -struct Card -clear-tags -w
 //go:generate gomodifytags --file $GOFILE --struct Card -add-tags json -w -transform camelcase
 type Card struct {
 	Type        string  `json:"type"`
-//	X           float64 `json:"x"`
-//	Y           float64 `json:"y"`
-//	Scale       float64 `json:"scale"`
+	X           float64 `json:"x"`
+	Y           float64 `json:"y"`
+	Scale       float64 `json:"scale"`
 	Title       string  `json:"title"`
 	Description string  `json:"description"`
-/*	Date        string  `json:"date"`
+	Date        string  `json:"date"`
 	Assignee    struct {
 		UserID string `json:"userId"`
 	} `json:"assignee"`
 	Style struct {
 		BackgroundColor string `json:"backgroundColor"`
-	} `json:"style"`*/
+	} `json:"style"`
 }
-type WidgetResponseDataType struct  {
+
+type SimpleCard struct {
+	Type string `json:"type"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+}
+type SimpleCardAssignee struct {
+	Assignee struct {
+		UserID string `json:"userId"`
+	} `json:"assignee"`
+}
+
+type WidgetResponseDataType struct {
 	ID          string      `json:"id"`
 	Type        string      `json:"type"`
 	Title       string      `json:"title"`
@@ -103,11 +115,10 @@ type WidgetResponseDataType struct  {
 	} `json:"modifiedBy"`
 }
 
-
 type WidgetResponseType struct {
-	Type string `json:"type"`
-	Data []WidgetResponseDataType  `json:"data"`
-	Size int `json:"size"`
+	Type string                   `json:"type"`
+	Data []WidgetResponseDataType `json:"data"`
+	Size int                      `json:"size"`
 }
 
 //https://api.miro.com/v1/boards/id/widgets/
@@ -128,10 +139,10 @@ func (s *WidgetsService) ListAllWidgets(ctx context.Context, id string) (*Widget
 
 	wresp := &WidgetResponseType{}
 	/*
-	body, _ := ioutil.ReadAll(resp.Body)
-	fmt.Printf("resp: %v\n", string(body))
+		body, _ := ioutil.ReadAll(resp.Body)
+		fmt.Printf("resp: %v\n", string(body))
 
-	 */
+	*/
 	if err := json.NewDecoder(resp.Body).Decode(wresp); err != nil {
 		return nil, err
 	}
@@ -174,8 +185,8 @@ type CreateCardRespType struct {
 }
 
 //https://api.miro.com/v1/boards/id/widgets
-func (s *WidgetsService) CreateCard(ctx context.Context, id string,b *Card) (*CreateCardRespType, error) {
-	req, err := s.client.NewPostRequest(fmt.Sprintf("boards/%s/%s", id, widgetsPath), b)
+func (s *WidgetsService) CreateSimpleCard(ctx context.Context, boardid string, b *SimpleCard) (*CreateCardRespType, error) {
+	req, err := s.client.NewPostRequest(fmt.Sprintf("boards/%s/%s", boardid, widgetsPath), b)
 	if err != nil {
 		return nil, err
 	}
@@ -194,10 +205,43 @@ func (s *WidgetsService) CreateCard(ctx context.Context, id string,b *Card) (*Cr
 		return nil, fmt.Errorf("status code not expected, got:%d, message:%s", resp.StatusCode, respErr.Message)
 	}
 	/*
-	body, _ := ioutil.ReadAll(resp.Body)
-	fmt.Printf("resp: %v\n", string(body))
+		body, _ := ioutil.ReadAll(resp.Body)
+		fmt.Printf("resp: %v\n", string(body))
 
-	 */
+	*/
+	board := &CreateCardRespType{}
+	if err := json.NewDecoder(resp.Body).Decode(board); err != nil {
+		return nil, err
+	}
+
+	return board, nil
+}
+
+//https://api.miro.com/v1/boards/id/widgets/widgetId
+func (s *WidgetsService) UpdateAssigneeCard(ctx context.Context, boardid string, widgetid string, b *SimpleCardAssignee) (*CreateCardRespType, error) {
+	req, err := s.client.NewPatchRequest(fmt.Sprintf("boards/%s/%s/%s", boardid, widgetsPath, widgetid), b)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := s.client.Do(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respErr := &RespError{}
+		if err := json.NewDecoder(resp.Body).Decode(respErr); err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("status code not expected, got:%d, message:%s", resp.StatusCode, respErr.Message)
+	}
+	/*
+		body, _ := ioutil.ReadAll(resp.Body)
+		fmt.Printf("resp: %v\n", string(body))
+
+	*/
 	board := &CreateCardRespType{}
 	if err := json.NewDecoder(resp.Body).Decode(board); err != nil {
 		return nil, err
