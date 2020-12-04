@@ -1,10 +1,12 @@
 package miro
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -74,7 +76,7 @@ type Card struct {
 }
 
 type SimpleCard struct {
-	Type string `json:"type"`
+	Type        string `json:"type"`
 	Title       string `json:"title"`
 	Description string `json:"description"`
 }
@@ -248,4 +250,141 @@ func (s *WidgetsService) UpdateAssigneeCard(ctx context.Context, boardid string,
 	}
 
 	return board, nil
+}
+
+type WidgetMetadataResponseType struct {
+	Type      string `json:"type"`
+	ID        string `json:"id"`
+	Title     string `json:"title"`
+	Issue     string `json:"issue"`
+	YourAppID string `json:"appissue"`
+	MetaData  string `json:"metadata"`
+}
+
+//type WidgetMetadataType map[int]string
+type WidgetMetadataType struct {
+	Title string
+	AppId string
+	Issue string
+}
+
+func (s *WidgetsService) GetWidgetMetadata(ctx context.Context, boardid string, widgetid string) (*WidgetMetadataResponseType, error) {
+	req, err := s.client.NewGetRequest(fmt.Sprintf("boards/%s/%s/%s", boardid, widgetsPath, widgetid))
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := s.client.Do(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("status code not expected, got:%d", resp.StatusCode)
+	}
+
+	wresp := &WidgetMetadataResponseType{}
+	/*
+		body, _ := ioutil.ReadAll(resp.Body)
+		fmt.Printf("resp: %v\n", string(body))
+
+	*/
+	if err := json.NewDecoder(resp.Body).Decode(wresp); err != nil {
+		return nil, err
+	}
+
+	return wresp, nil
+}
+
+//GET https://api.miro.com/v1/boards/{boardKey}/widgets/{widgetId}
+func (s *WidgetsService) UpdateWidgetMetadata(ctx context.Context, boardid string, widgetid string, b *WidgetMetadataType) (*WidgetMetadataResponseType, error) {
+	req, err := s.client.NewPatchRequest(fmt.Sprintf("boards/%s/%s/%s", boardid, widgetsPath, widgetid), b)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := s.client.Do(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respErr := &RespError{}
+		if err := json.NewDecoder(resp.Body).Decode(respErr); err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("status code not expected, got:%d, message:%s", resp.StatusCode, respErr.Message)
+	}
+	/*
+		body, _ := ioutil.ReadAll(resp.Body)
+		fmt.Printf("resp: %v\n", string(body))
+
+	*/
+	board := &WidgetMetadataResponseType{}
+	if err := json.NewDecoder(resp.Body).Decode(board); err != nil {
+		return nil, err
+	}
+
+	return board, nil
+}
+
+/*
+{"title": "example",
+"metadata": {
+"3074457352146652951" :{
+"issue" : "STP-346" }
+}
+}
+*/
+
+func (this WidgetMetadataType) MarshalJSON() ([]byte, error) {
+	str := strings.Replace(this.Title, `"`, `\"`, -1)
+	buffer := bytes.NewBufferString("{")
+	buffer.WriteString(fmt.Sprintf("\"title\": \"%s\",", str))
+	buffer.WriteString(fmt.Sprintf("\"metadata\": {\"%s\" :  { \"issue\" : \"%s\" }", this.AppId, this.Issue))
+
+	buffer.WriteString("}}")
+	return buffer.Bytes(), nil
+}
+
+func (p *WidgetMetadataResponseType) UnmarshalJSON(j []byte) error {
+	var rawStrings map[string]interface{}
+
+	err := json.Unmarshal(j, &rawStrings)
+	if err != nil {
+		return err
+	}
+
+	for k, v := range rawStrings {
+		if strings.ToLower(k) == "type" {
+			p.Type = v.(string)
+		}
+		if strings.ToLower(k) == "id" {
+			p.ID = v.(string)
+		}
+		if strings.ToLower(k) == "title" {
+			p.Title = v.(string)
+		}
+		if strings.ToLower(k) == "metadata" {
+			var _v map[string]interface{}
+			_v = v.(map[string]interface{})
+			for kk, vv := range _v {
+				var _vv map[string]interface{}
+				_vv = vv.(map[string]interface{})
+				p.YourAppID = kk
+				for kkk, vvv := range _vv {
+					//fmt.Printf("kk: %s\n", kk)
+					if strings.ToLower(kkk) == "issue" {
+						p.Issue = vvv.(string)
+						//p.Metadata.issue = "val"
+					}
+				}
+			}
+
+		}
+
+	}
+
+	return nil
 }
