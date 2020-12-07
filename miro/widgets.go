@@ -85,6 +85,11 @@ type SimpleCardAssignee struct {
 		UserID string `json:"userId"`
 	} `json:"assignee"`
 }
+type SimpleCardStyle struct {
+	Style struct {
+		BackgroundColor string `json:"backgroundColor"`
+	} `json:"style"`
+}
 
 type WidgetResponseDataType struct {
 	ID          string      `json:"id"`
@@ -251,21 +256,55 @@ func (s *WidgetsService) UpdateAssigneeCard(ctx context.Context, boardid string,
 
 	return board, nil
 }
+func (s *WidgetsService) UpdateStyleCard(ctx context.Context, boardid string, widgetid string, b *SimpleCardStyle) (*CreateCardRespType, error) {
+	req, err := s.client.NewPatchRequest(fmt.Sprintf("boards/%s/%s/%s", boardid, widgetsPath, widgetid), b)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := s.client.Do(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respErr := &RespError{}
+		if err := json.NewDecoder(resp.Body).Decode(respErr); err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("status code not expected, got:%d, message:%s", resp.StatusCode, respErr.Message)
+	}
+	/*
+		body, _ := ioutil.ReadAll(resp.Body)
+		fmt.Printf("resp: %v\n", string(body))
+
+	*/
+	board := &CreateCardRespType{}
+	if err := json.NewDecoder(resp.Body).Decode(board); err != nil {
+		return nil, err
+	}
+
+	return board, nil
+}
+
 
 type WidgetMetadataResponseType struct {
 	Type      string `json:"type"`
 	ID        string `json:"id"`
 	Title     string `json:"title"`
 	Issue     string `json:"issue"`
+	Status     string `json:"status"`
 	YourAppID string `json:"appissue"`
 	MetaData  string `json:"metadata"`
 }
-
+// TODO Merge these two classes
 //type WidgetMetadataType map[int]string
 type WidgetMetadataType struct {
 	Title string
 	AppId string
 	Issue string
+	Status string
 }
 
 func (s *WidgetsService) GetWidgetMetadata(ctx context.Context, boardid string, widgetid string) (*WidgetMetadataResponseType, error) {
@@ -342,7 +381,7 @@ func (this WidgetMetadataType) MarshalJSON() ([]byte, error) {
 	str := strings.Replace(this.Title, `"`, `\"`, -1)
 	buffer := bytes.NewBufferString("{")
 	buffer.WriteString(fmt.Sprintf("\"title\": \"%s\",", str))
-	buffer.WriteString(fmt.Sprintf("\"metadata\": {\"%s\" :  { \"issue\" : \"%s\" }", this.AppId, this.Issue))
+	buffer.WriteString(fmt.Sprintf("\"metadata\": {\"%s\" :  { \"issue\" : \"%s\", \"status\" : \"%s\" }", this.AppId, this.Issue, this.Status))
 
 	buffer.WriteString("}}")
 	return buffer.Bytes(), nil
@@ -379,6 +418,11 @@ func (p *WidgetMetadataResponseType) UnmarshalJSON(j []byte) error {
 						p.Issue = vvv.(string)
 						//p.Metadata.issue = "val"
 					}
+					if strings.ToLower(kkk) == "status" {
+						p.Status = vvv.(string)
+						//p.Metadata.issue = "val"
+					}
+
 				}
 			}
 
